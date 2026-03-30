@@ -1,6 +1,4 @@
 streamlit
 pandas
 sqlalchemy
-smolagents==1.18
-faker
-huggingface_hub
+requests
