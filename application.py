@@ -131,10 +131,10 @@ def explain_results(question, sql_result):
 st.set_page_config(page_title="AI Analyst", layout="wide")
 
 st.title("Привет! Я твой аналитический помощник")
-st.caption("Жду твои вопросы по клиентским оценкам")
+st.caption("Пиши свои вопросы по клиентским оценкам")
 
 # sidebar
-st.sidebar.title("Примеры")
+st.sidebar.title("Примеры запросов")
 
 examples = [
     "Средняя оценка по продуктам",
