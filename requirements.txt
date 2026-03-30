@@ -1,0 +1,6 @@
+streamlit
+pandas
+sqlalchemy
+smolagents
+faker
+huggingface_hub
