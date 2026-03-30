@@ -1,13 +1,15 @@
-# 2 версия
-
-!pip install streamlit
-
 import streamlit as st
 import pandas as pd
 import io
 
 from smolagents import CodeAgent, HfApiModel, tool
 from sqlalchemy import create_engine, text
+from huggingface_hub import login
+
+# =========================
+# HF TOKEN (ВАЖНО)
+# =========================
+login(token=st.secrets["HF_TOKEN"])
 
 # =========================
 # DB
@@ -33,6 +35,10 @@ def sql_engine(query: str) -> str:
         response_date TEXT,
         channel TEXT
     )
+
+    IMPORTANT:
+    - Only use this table
+    - Use valid SQLite syntax
 
     Args:
         query: SQL query in SQLite syntax.
@@ -91,6 +97,9 @@ query = st.chat_input("Введите вопрос...")
 if "query" in st.session_state:
     query = st.session_state.pop("query")
 
+# =========================
+# RESPONSE
+# =========================
 if query:
     with st.chat_message("user"):
         st.write(query)
@@ -98,7 +107,13 @@ if query:
     with st.chat_message("assistant"):
         with st.spinner("Analyzing..."):
             try:
-                response = agent.run(query)
+                response = agent.run(f"""
+                Answer the question using SQL.
+                Then explain insights briefly.
+
+                Question: {query}
+                """)
+
                 st.write(response)
 
                 # график
@@ -112,4 +127,5 @@ if query:
                     pass
 
             except Exception as e:
-                st.error(f"Ошибка: {str(e)}")
+                st.error("⚠️ Ошибка при обработке запроса")
+                st.text(str(e))
