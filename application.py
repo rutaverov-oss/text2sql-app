@@ -34,6 +34,16 @@ def run_sql(query: str) -> str:
     except Exception as e:
         return f"SQL Error: {str(e)}"
 
+def clean_sql(sql: str) -> str:
+    sql = sql.strip()
+
+    # убираем ```sql ``` или ```
+    if sql.startswith("```"):
+        sql = sql.replace("```sql", "")
+        sql = sql.replace("```", "")
+
+    return sql.strip()
+
 # =========================
 # LLM → SQL
 # =========================
@@ -56,8 +66,12 @@ Columns:
 
 Rules:
 - Use only this table
-- Return ONLY SQL
 - SQLite syntax
+- Return ONLY raw SQL
+- NO markdown
+- NO ```sql
+
+Return ONLY raw SQL. No markdown. No ```
 
 Question: {question}
 """
@@ -149,6 +163,7 @@ if query:
         with st.spinner("Analyzing..."):
             try:
                 sql = generate_sql(query)
+                sql = clean_sql(sql)
                 st.code(sql, language="sql")
 
                 result = run_sql(sql)
