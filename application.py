@@ -49,12 +49,12 @@ def clean_sql(sql: str) -> str:
 # =========================
 def generate_sql(question):
     prompt = f"""
-You are a data analyst.
+Ты аналитик данных.
 
-Convert the question into SQL query.
+Преобразуй вопрос пользователя в SQL-запрос.
 
-Table: survey_responses
-Columns:
+Таблица: survey_responses
+Колонки:
 - response_id
 - survey_id
 - customer_id
@@ -64,16 +64,14 @@ Columns:
 - response_date
 - channel
 
-Rules:
-- Use only this table
-- SQLite syntax
-- Return ONLY raw SQL
-- NO markdown
-- NO ```sql
+Правила:
+- Используй только эту таблицу
+- Синтаксис SQLite
+- Верни ТОЛЬКО SQL
+- Без markdown
+- Без ```sql
 
-Return ONLY raw SQL. No markdown. No ```
-
-Question: {question}
+Вопрос: {question}
 """
 
     response = requests.post(
@@ -98,15 +96,16 @@ Question: {question}
 # =========================
 def explain_results(question, sql_result):
     prompt = f"""
-You are a business analyst.
+Ты бизнес-аналитик.
 
-User question:
+Вопрос пользователя:
 {question}
 
-SQL result:
+Результат SQL:
 {sql_result}
 
-Explain insights in simple terms.
+Объясни выводы простым языком НА РУССКОМ.
+Напиши кратко и по делу.
 """
 
     response = requests.post(
@@ -131,16 +130,18 @@ Explain insights in simple terms.
 # =========================
 st.set_page_config(page_title="AI Analyst", layout="wide")
 
-st.title("📊 AI Data Analyst")
-st.caption("Ask questions → get insights from your data")
+st.title("👋 Привет! Я твой аналитический помощник")
+st.caption("Готов ответить на твои вопросы по клиентским оценкам")
 
 # sidebar
-st.sidebar.title("💡 Examples")
+st.sidebar.title("💡 Примеры")
 
 examples = [
     "Средняя оценка по продуктам",
-    "Какие продукты хуже всего",
+    "По каким продуктам самые низкие оценки",
     "Оценки по каналам",
+    "Оценки по возрастным группам",
+    "Какая доля оценок 10 среди всех оценок"
 ]
 
 for ex in examples:
