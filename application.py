@@ -1,15 +1,14 @@
 import streamlit as st
 import pandas as pd
 import io
+import requests
 
-from smolagents import CodeAgent, HfApiModel, tool
 from sqlalchemy import create_engine, text
-from huggingface_hub import login
 
 # =========================
-# HF TOKEN (ВАЖНО)
+# CONFIG
 # =========================
-login(token=st.secrets["HF_TOKEN"])
+OPENROUTER_API_KEY = st.secrets["OPENROUTER_API_KEY"]
 
 # =========================
 # DB
@@ -17,35 +16,9 @@ login(token=st.secrets["HF_TOKEN"])
 engine = create_engine("sqlite:///bank_surveys.db")
 
 # =========================
-# TOOL
+# SQL EXECUTOR
 # =========================
-@tool
-def sql_engine(query: str) -> str:
-    """
-    Execute SQL query on the survey_responses table.
-
-    Table schema:
-    survey_responses (
-        response_id INTEGER PRIMARY KEY,
-        survey_id INTEGER,
-        customer_id INTEGER,
-        product_name TEXT,
-        score INTEGER,
-        comment TEXT,
-        response_date TEXT,
-        channel TEXT
-    )
-
-    IMPORTANT:
-    - Only use this table
-    - Use valid SQLite syntax
-
-    Args:
-        query: SQL query in SQLite syntax.
-
-    Returns:
-        String with query result (table format).
-    """
+def run_sql(query: str) -> str:
     try:
         with engine.connect() as con:
             result = con.execute(text(query))
@@ -59,17 +32,85 @@ def sql_engine(query: str) -> str:
 
         return output
     except Exception as e:
-        return f"Error: {str(e)}"
+        return f"SQL Error: {str(e)}"
 
 # =========================
-# AGENT
+# LLM → SQL
 # =========================
-@st.cache_resource
-def load_agent():
-    model = HfApiModel("Qwen/Qwen2.5-7B-Instruct")
-    return CodeAgent(tools=[sql_engine], model=model)
+def generate_sql(question):
+    prompt = f"""
+You are a data analyst.
 
-agent = load_agent()
+Convert the question into SQL query.
+
+Table: survey_responses
+Columns:
+- response_id
+- survey_id
+- customer_id
+- product_name
+- score
+- comment
+- response_date
+- channel
+
+Rules:
+- Use only this table
+- Return ONLY SQL
+- SQLite syntax
+
+Question: {question}
+"""
+
+    response = requests.post(
+        url="https://openrouter.ai/api/v1/chat/completions",
+        headers={
+            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+            "Content-Type": "application/json"
+        },
+        json={
+            "model": "openrouter/auto",
+            "messages": [
+                {"role": "user", "content": prompt}
+            ]
+        }
+    )
+
+    result = response.json()
+    return result["choices"][0]["message"]["content"].strip()
+
+# =========================
+# SQL → INSIGHTS
+# =========================
+def explain_results(question, sql_result):
+    prompt = f"""
+You are a business analyst.
+
+User question:
+{question}
+
+SQL result:
+{sql_result}
+
+Explain insights in simple terms.
+"""
+
+    response = requests.post(
+        url="https://openrouter.ai/api/v1/chat/completions",
+        headers={
+            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+            "Content-Type": "application/json"
+        },
+        json={
+            "model": "openrouter/auto",
+            "messages": [
+                {"role": "user", "content": prompt}
+            ]
+        }
+    )
+
+    result = response.json()
+    return result["choices"][0]["message"]["content"]
 
 # =========================
 # UI
@@ -107,18 +148,15 @@ if query:
     with st.chat_message("assistant"):
         with st.spinner("Analyzing..."):
             try:
-                response = agent.run(f"""
-                Answer the question using SQL.
-                Then explain insights briefly.
+                sql = generate_sql(query)
+                st.code(sql, language="sql")
 
-                Question: {query}
-                """)
-
-                st.write(response)
+                result = run_sql(sql)
+                st.write(result)
 
                 # график
                 try:
-                    df = pd.read_csv(io.StringIO(response), sep="|")
+                    df = pd.read_csv(io.StringIO(result), sep="|")
                     df.columns = [c.strip() for c in df.columns]
 
                     if len(df.columns) == 2:
@@ -126,6 +164,10 @@ if query:
                 except:
                     pass
 
+                st.markdown("### 💡 Insights")
+                insights = explain_results(query, result)
+                st.write(insights)
+
             except Exception as e:
-                st.error("⚠️ Ошибка при обработке запроса")
+                st.error("Ошибка при обработке запроса")
                 st.text(str(e))
